@@ -1,0 +1,9 @@
+vaccine
+vaccine,BioNTech,Pfizer,Moderna,dose,CureVac,injection,inoculate,corona,covid
+2
+vaccine_conspiracies
+Gates,qanon,infertility,mRNA,DNA,microchip,chip,corona,covid,China,vaccine
+3
+combined
+vaccine,BioNTech,Pfizer,Moderna,dose,CureVac,injection,inoculate,corona,covid,Gates,qanon,infertility,mRNA,DNA,microchip,chip,China,vaccine
+2
