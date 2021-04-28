@@ -5,7 +5,26 @@ import time
 from gensim.models import Word2Vec
 from sklearn.model_selection import KFold
 from sklearn.metrics import roc_auc_score
+from itertools import chain
+import random
 
+
+def generate_false_edges(true_edges, num_false_edges=5):
+    """
+    generate false edges given true edges
+    """
+    nodes = list(set(chain.from_iterable(true_edges)))
+    true_edges = set(true_edges)
+    false_edges = set()
+    
+    while len(false_edges) < num_false_edges:
+        # randomly sample two different nodes and check whether the pair exisit or not
+        head, tail = np.random.choice(nodes, 2)
+        if head != tail and ((head, tail) not in true_edges and (tail, head) not in true_edges) and ((head, tail) not in false_edges and (tail, head) not in false_edges):
+            false_edges.add((head, tail))    
+    false_edges = sorted(false_edges)
+    
+    return false_edges
 
 # Random Walk Generator
 def __alias_setup(probs):
@@ -46,7 +65,10 @@ def get_alias_node(graph, node):
     # get the unnormalized probabilities with the first-order information
     unnormalized_probs = list()
     for nbr in graph.neighbors(node):
-        unnormalized_probs.append(graph[node][nbr]['weight'])
+        if 'weight' in graph[node][nbr]:
+            unnormalized_probs.append(graph[node][nbr]['weight'])
+        else:
+            unnormalized_probs.append(1)
     unnormalized_probs = np.array(unnormalized_probs)
     if len(unnormalized_probs) > 0:
         normalized_probs = unnormalized_probs / unnormalized_probs.sum()
@@ -63,11 +85,20 @@ def get_alias_edge(graph, src, dst, p=1, q=1):
     unnormalized_probs = list()
     for dst_nbr in graph.neighbors(dst):
         if dst_nbr == src: # distance is 0
-            unnormalized_probs.append(graph[dst][dst_nbr]['weight'] / p)
+            if 'weight' in graph[dst][dst_nbr]:
+                unnormalized_probs.append(graph[dst][dst_nbr]['weight'] / p)
+            else:
+                unnormalized_probs.append(1 / p)
         elif graph.has_edge(dst_nbr, src): # distance is 1
-            unnormalized_probs.append(graph[dst][dst_nbr]['weight'])
+            if 'weight' in graph[dst][dst_nbr]:
+                unnormalized_probs.append(graph[dst][dst_nbr]['weight'])
+            else:
+                unnormalized_probs.append(1)
         else: # distance is 2
-            unnormalized_probs.append(graph[dst][dst_nbr]['weight'] / q)
+            if 'weight' in graph[dst][dst_nbr]:
+                unnormalized_probs.append(graph[dst][dst_nbr]['weight'] / q)
+            else:
+                unnormalized_probs.append(1 / q)
     unnormalized_probs = np.array(unnormalized_probs)
     if len(unnormalized_probs) > 0:
         normalized_probs = unnormalized_probs / unnormalized_probs.sum()
@@ -219,25 +250,32 @@ class EmbedModel():
                     walk_length=10,
                     walk_method="dfs"):
         self.graph = graph.copy()
+        self.valid_edges = random.sample(self.graph.edges, int(0.25 * self.graph.number_of_edges()))
+        self.train_graph = graph.copy()
+        self.train_graph.remove_edges_from(self.valid_edges)
+        self.false_edges = generate_false_edges(self.graph.edges, num_false_edges=int(0.25 * self.graph.number_of_edges()))
+
         self.node_dim = node_dim
         self.num_walks = num_walks
         self.walk_length = walk_length
         self.walk_method = walk_method
         self.model = None
         
-    def get_embedding(self, node):
+    def get_embedding(self, node=None):
+        if node is None:
+            return dict(zip(self.train_graph.nodes, [self.model.wv.vectors[self.model.wv.index2word.index(node)] for node in self.train_graph.nodes]))
         try:
             return self.model.wv.vectors[self.model.wv.index2word.index(node)]
         except:
             return None
         
-    def evaluate(self, true_edges, false_edges):
-        y_true = [1] * len(true_edges) + [0] * len(false_edges)
+    def evaluate(self):
+        y_true = [1] * len(self.valid_edges) + [0] * len(self.false_edges)
         
         y_score = list()
-        for e in true_edges:
+        for e in self.valid_edges:
             y_score.append(get_cosine_sim(self.get_embedding(e[0]), self.get_embedding(e[1])))
-        for e in false_edges:
+        for e in self.false_edges:
             y_score.append(get_cosine_sim(self.get_embedding(e[0]), self.get_embedding(e[1])))
 
         return roc_auc_score(y_true, y_score)
@@ -259,18 +297,18 @@ class Deepwalk(EmbedModel):
         print("building a DeepWalk model...", end='\t')
         st = time.time()
         np.random.seed(0)
-        nodes = list(self.graph.nodes())
+        nodes = list(self.train_graph.nodes())
         walks = list()
         # generate alias nodes
         alias_nodes = dict()
-        for node in self.graph.nodes():
-            alias_nodes[node] = get_alias_node(self.graph, node)
+        for node in self.train_graph.nodes():
+            alias_nodes[node] = get_alias_node(self.train_graph, node)
         # generate random walks
         for walk_iter in range(self.num_walks):
             np.random.shuffle(nodes)
             for node in nodes:
                 walks.append(self.walk_method(
-                    self.graph, alias_nodes, walk_length=self.walk_length, start_node=node
+                    self.train_graph, alias_nodes, walk_length=self.walk_length, start_node=node
                 ))
 
         walk_lens = [len(w) for w in walks]
@@ -307,22 +345,22 @@ class node2vec(EmbedModel):
         print("building a node2vec model...", end='\t')
         st = time.time()
         np.random.seed(0)
-        nodes = list(self.graph.nodes())
+        nodes = list(self.train_graph.nodes())
         walks = list()
         # generate alias nodes
         alias_nodes = dict()
-        for node in self.graph.nodes():
-            alias_nodes[node] = get_alias_node(self.graph, node)
+        for node in self.train_graph.nodes():
+            alias_nodes[node] = get_alias_node(self.train_graph, node)
         alias_edges = dict()
-        for edge in self.graph.edges():
-            alias_edges[edge] = get_alias_edge(self.graph, edge[0], edge[1], p=self.p, q=self.q)
-            alias_edges[(edge[1], edge[0])] = get_alias_edge(self.graph, edge[1], edge[0], p=self.p, q=self.q)
+        for edge in self.train_graph.edges():
+            alias_edges[edge] = get_alias_edge(self.train_graph, edge[0], edge[1], p=self.p, q=self.q)
+            alias_edges[(edge[1], edge[0])] = get_alias_edge(self.train_graph, edge[1], edge[0], p=self.p, q=self.q)
         # generate random walks
         for walk_iter in range(self.num_walks):
             np.random.shuffle(nodes)
             for node in nodes:
                 walks.append(self.walk_method(
-                    self.graph, alias_nodes, alias_edges, walk_length=self.walk_length, start_node=node
+                    self.train_graph, alias_nodes, alias_edges, walk_length=self.walk_length, start_node=node
                 ))
 
         walk_lens = [len(w) for w in walks]
