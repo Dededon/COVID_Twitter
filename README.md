@@ -1,7 +1,15 @@
 # COVID_Twitter
  HKUST COMP4641 Course Project
  
+ ## To do list:
+ # 1. Interaction Network (Retweet & Commnet)
+ # 2. Tweet Similarity Network
+ # 3. Stack network together to see clustering
+ 
  Contributors: 
+ Haoran Liang
+ Yu Man Poon
+ Chi Ho Wong
 
 ## Script Descriptions:
 ### file_adjustments.py
