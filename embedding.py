@@ -12,8 +12,10 @@ from node2vec import get_cosine_sim
 class Embedding():
 
     def __init__(self, embedding):
-        self.__nodes = list(embedding.keys())
-        self.__embedding = np.array(list(embedding.values()))
+        ##### uncomment for node2vec #######
+        # self.__nodes = list(embedding.keys()) 
+        # self.__embedding = np.array(list(embedding.values()))
+        self.__embedding = np.array(embedding)
         self.__nodes_pos = None
         self.__nodes_cluster = None
 
@@ -24,6 +26,12 @@ class Embedding():
     @property
     def nodes_pos(self):
         return dict(zip(self.__nodes, self.__nodes_pos))
+
+    def get_nodes_pos(self):
+        return self.__nodes_pos
+
+    def get_nodes_cluster(self):
+        return self.__nodes_cluster
 
     @property
     def nodes_cluster(self):
@@ -38,7 +46,7 @@ class Embedding():
             reducer = umap.UMAP(**kwargs)
             self.__nodes_pos = reducer.fit_transform(self.__embedding)
         elif method == 't-SNE':
-            reducer = TSNE(**kwargs)
+            reducer = TSNE(verbose = 1, **kwargs)
             self.__nodes_pos = reducer.fit_transform(self.__embedding)
         elif method == 'FD':
             pos = self.embedding
