@@ -1,10 +1,11 @@
 # COVID_Twitter
  HKUST COMP4641 Course Project
  
- ## To do list:
- # 1. Interaction Network (Retweet & Commnet)
- # 2. Tweet Similarity Network
- # 3. Stack network together to see clustering
+ # To-do list:
+ ## 1. Interaction Network (Retweet & Commnet)
+ ## 2. Tweet Similarity Network
+ ## 3. Stack network together to see clustering
+ ## 4. GNN
  
  Contributors: 
  Haoran Liang
