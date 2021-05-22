@@ -1,0 +1,14 @@
+Some Qualitative Research on the Cluster Data:
+(Better to do with single category data because it makes more sense)
+1. What the clusters are, how clusters are connected, what are the spam data
+2. The user activity within the cluster (num of tweets to check whether is bot)
+3. The user location with the provided code 
+(What are the location patterns of the clusters? B&R states, rural vs. city, percint Biden winning, feel free to edit data)
+
+Probably Migrate the analysis from networkx to the sklearn dim reduction and clustering with such method:
+Hashtag/Retweet/Mention top 100/200 list
+Each user have a vector (sparse) with (count of retweeted/hashtagged/mentioned times)
+Or Bert vector if we can process that out
+Calculate cosine-similarity or Euclidean distance to create links between distinct users
+And do dim reduction and clustering with DBSCAN
+Check the colored clusters, check the clustering result
